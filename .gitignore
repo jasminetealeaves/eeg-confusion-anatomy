@@ -7,3 +7,5 @@ build/
 dist/
 *.spec
 *.pdf
+# dataset (rebuilt locally; see PLAN.md Step 0)
+data/raw/
