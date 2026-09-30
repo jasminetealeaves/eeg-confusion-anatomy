@@ -1,5 +1,6 @@
 import numpy as np
-from src.data import load_all
+import math
+from src.data import load_all, FS
 from scipy.signal import welch
 
 BANDS = {
@@ -10,17 +11,38 @@ BANDS = {
     "gamma": (30, 40)
 }
 FEATURE_NAMES = [f'rel_{b}' for b in BANDS] + ["log_total_power", "std", "line_length"]
-FS = 173.61
 
 def feature_one(seg):
     """
     get 8 features for one recording using welch's methods
     """
     freqs, psd = welch(seg, fs=FS, nperseg=512) 
-    df = freqs[1] - freqs[0] # power spectra density at each frequency 
-    ...
+    df = freqs[1] - freqs[0] # bin width 
+    total_mask = (freqs >= 0.5) & (freqs < 40)
+    total_power = psd[total_mask].sum() * df 
+
+    rel = []
+    for lo, hi in BANDS.values():
+        mask = (freqs >= lo) & (freqs < hi)
+        rel.append(psd[mask].sum() * df)
+
+    log_total = math.log10(total_power)
+    std = np.std(seg)
+    line_length = np.abs(np.diff(seg)).sum()
+
+    return [*rel, log_total, std, line_length]
+
+def extract(X):
+    """
+    turn X: (n, n_samples) into (n, 8)  
+    """
+    all_segs_feats = []
+    for seg in X:
+        feats = feature_one(seg)
+        all_segs_feats.append(feats)
+    return np.array(all_segs_feats)
+
 
 if __name__ == "__main__":
-    X, _, _ = load_all()
-    seg = X[0]
-    feature_one(seg)
+    X, y, _ = load_all()
+    extract(X)
