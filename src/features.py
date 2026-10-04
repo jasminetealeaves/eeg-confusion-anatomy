@@ -1,7 +1,8 @@
 import numpy as np
 import math
-from src.data import load_all, FS
 from scipy.signal import welch
+
+from src.data import load_all, FS
 
 BANDS = {
     "delta": (0.5, 4),
