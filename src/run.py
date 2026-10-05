@@ -75,5 +75,75 @@ def block_split_eval(model, F, y, pos):
         y_pred = m.predict(X_test)
         f1s.append(f1_score(y_test, y_pred, average='macro'))
 
-        return np.means(f1s), np.std(f1s)
+    return np.mean(f1s), np.std(f1s)
+
+def plot(cm, title, path, vmax=1.0):
+    fig, ax = plt.subplots(figsize=(6,5))
+    ax.imshow(cm, cmap="Blues", vmin=0, vmax=vmax)
+    ax.set_xticks(range(5))
+    ax.set_xticklabels(CLASSES, rotation=45, ha="right")
+    ax.set_yticks(range(5))
+    ax.set_yticklabels(CLASSES)
+    for i in range(cm.shape[0]):
+        for j in range(cm.shape[1]):
+            ax.text(j, i, f"{cm[i, j]:.2f}", ha='center', va='center', color="white" if cm[i, j] > 0.5*vmax else "black")
+    
+    ax.set_xlabel("predicted")
+    ax.set_ylabel("true")
+    ax.set_title(title)
+
+    fig.tight_layout()
+    fig.savefig(path, dpi=150)
+    plt.close()
+
+def top_confusions(cm, k=3):
+    """
+    find the three biggest mistakes in the confusion matrix
+    """
+    off = cm.copy()
+    # remove the diagonal as it holds correct predictions 
+    np.fill_diagonal(off, -1)
+    flat_idx = np.argsort(off, axis=None)[::-1][:k]
+    rows, cols = np.unravel_index(flat_idx, off.shape)
+
+    return [(CLASSES[i], CLASSES[j], float(cm[i,j])) for i, j in zip(rows, cols)]
+
+
+def main():
+    # load and extract data 
+    X, y, pos = load_all()
+    F = extract(X)
+    print(f"{F.shape=}")
+    RESULTS = Path(__file__).resolve().parents[1] / "results"
+    RESULTS.mkdir(exist_ok=True)
+    cms = []
+
+    # build the models
+    for name, model in build_models().items():
+        cm, r_mean, r_std = random_split_eval(model, F, y)
+        b_mean, b_std = block_split_eval(model, F, y, pos)
+        gap = r_mean - b_mean
+        print(f"{name:<8}  random {r_mean:.3f} +/- {r_std:.3f}  "
+            f"block {b_mean:.3f} +/- {b_std:.3f}  gap {gap:+.3f}")
+        
+        # plot the results 
+        title = f"{name}"
+        path = RESULTS / f"cm_{name}.png"
+        plot(cm, title, path)
+
+        cms.append(cm)
+
+    all_cms = np.stack(cms)
+    cm_mean = all_cms.mean(axis=0)
+    plot(cm_mean, "cm mean", RESULTS / "cm_mean.png")
+    cm_std = all_cms.std(axis=0)
+    plot(cm_std, "cm std", RESULTS / "cm_disagreement.png", cm_std.max())
+
+    # check top 3 confusions among all models 
+    print("Top confusions (true --> predicted):")
+    for t, p, v in top_confusions(cm_mean):
+        print(f"{t} --> {p} {v:.2f}")
+
+if __name__ == "__main__": 
+    main()
 
