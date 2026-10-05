@@ -5,6 +5,7 @@ ROOT = Path(__file__).resolve().parents[1] / "data" / "raw" / "Dataset"
 N_SAMPLES = 4097
 SETS = ["Z", "O", "N", "F", "S"]
 FS = 173.61
+CLASSES = ['EyeOpen', 'EyeClosed', 'Contralateral', 'Epileptogenic', 'Seizure']
 
 def get_files_per_folder(s):
     folder = ROOT / s

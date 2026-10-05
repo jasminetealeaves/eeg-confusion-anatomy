@@ -25,7 +25,7 @@ def feature_one(seg):
     rel = []
     for lo, hi in BANDS.values():
         mask = (freqs >= lo) & (freqs < hi)
-        rel.append(psd[mask].sum() * df)
+        rel.append(psd[mask].sum() * df / total_power)
 
     log_total = math.log10(total_power)
     std = np.std(seg)
