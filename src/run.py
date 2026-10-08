@@ -14,11 +14,11 @@ from sklearn.metrics import confusion_matrix, f1_score
 from sklearn.base import clone
 
 from src.data import load_all, CLASSES
-from src.features import extract, FEATURE_NAMES
+from src.features import extract
 
 def build_models():
     """
-    returns dict[str, estimator]: logreg, forest, svm_rbf
+    returns dict[str, estimator]: logistic regression, random forest, svm_rbf
     """
     return {
         "logreg": Pipeline([
@@ -103,6 +103,7 @@ def top_confusions(cm, k=3):
     off = cm.copy()
     # remove the diagonal as it holds correct predictions 
     np.fill_diagonal(off, -1)
+    # sort in descending order
     flat_idx = np.argsort(off, axis=None)[::-1][:k]
     rows, cols = np.unravel_index(flat_idx, off.shape)
 
@@ -113,7 +114,6 @@ def main():
     # load and extract data 
     X, y, pos = load_all()
     F = extract(X)
-    print(f"{F.shape=}")
     RESULTS = Path(__file__).resolve().parents[1] / "results"
     RESULTS.mkdir(exist_ok=True)
     cms = []
@@ -122,6 +122,7 @@ def main():
     for name, model in build_models().items():
         cm, r_mean, r_std = random_split_eval(model, F, y)
         b_mean, b_std = block_split_eval(model, F, y, pos)
+        # gap shows how much of the random score comes from recognizing people
         gap = r_mean - b_mean
         print(f"{name:<8}  random {r_mean:.3f} +/- {r_std:.3f}  "
             f"block {b_mean:.3f} +/- {b_std:.3f}  gap {gap:+.3f}")

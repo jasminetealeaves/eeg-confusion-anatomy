@@ -17,10 +17,12 @@ def load_all():
     This function loads the txt files. 
     """
     X, y, pos = [], [], []
+    # looping through all folders 
     for cls, s in enumerate(SETS):
         files = get_files_per_folder(s)
         if len(files) != 100:
             raise ValueError(f'{set=} found {len(files)}, expected 100')
+        # looping through all txt files in a folder
         for i, file in enumerate(files):
             data = np.loadtxt(file, dtype=np.float64)
             if data.shape != (N_SAMPLES,):
