@@ -11,18 +11,22 @@ BANDS = {
     "beta": (13, 30),
     "gamma": (30, 40)
 }
+# 8 features to extract for each recording
 FEATURE_NAMES = [f'rel_{b}' for b in BANDS] + ["log_total_power", "std", "line_length"]
 
 def feature_one(seg):
     """
     get 8 features for one recording using welch's methods
     """
+    # welch's method returns frequency bins and the corresponding power density  
     freqs, psd = welch(seg, fs=FS, nperseg=512) 
     df = freqs[1] - freqs[0] # bin width 
+    # only get the intended band range 
     total_mask = (freqs >= 0.5) & (freqs < 40)
     total_power = psd[total_mask].sum() * df 
 
     rel = []
+    # get actual power for each band (power density (power/hz) * distance (hz))
     for lo, hi in BANDS.values():
         mask = (freqs >= lo) & (freqs < hi)
         rel.append(psd[mask].sum() * df / total_power)
