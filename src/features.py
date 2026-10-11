@@ -16,7 +16,7 @@ FEATURE_NAMES = [f'rel_{b}' for b in BANDS] + ["log_total_power", "std", "line_l
 
 def feature_one(seg):
     """
-    get 8 features for one recording using welch's methods
+    get 5 relative band powers, log total power, std, line length for one recording using welch's methods
     """
     # welch's method returns frequency bins and the corresponding power density  
     freqs, psd = welch(seg, fs=FS, nperseg=512) 
@@ -37,6 +37,15 @@ def feature_one(seg):
 
     return [*rel, log_total, std, line_length]
 
+def spectrum_one(seg):
+    """
+    get log10 power of every bin in one recording using welch's methods 
+    """
+    freqs, psd = welch(seg, fs=FS, nperseg=512)
+    mask = (freqs >= 0.5) & (freqs < 40)
+    return np.log10(psd[mask])
+    
+
 def extract(X):
     """
     turn X: (n, n_samples) into (n, 8)  
@@ -44,6 +53,16 @@ def extract(X):
     all_segs_feats = []
     for seg in X:
         feats = feature_one(seg)
+        all_segs_feats.append(feats)
+    return np.array(all_segs_feats)
+
+def extract_spectrum(X):
+    """
+    turn X: (n, n_samples) into (n, 116)
+    """
+    all_segs_feats = []
+    for seg in X:
+        feats = spectrum_one(seg)
         all_segs_feats.append(feats)
     return np.array(all_segs_feats)
 

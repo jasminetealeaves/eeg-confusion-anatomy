@@ -14,7 +14,7 @@ from sklearn.metrics import confusion_matrix, f1_score
 from sklearn.base import clone
 
 from src.data import load_all, CLASSES
-from src.features import extract
+from src.features import extract, extract_spectrum
 
 def build_models():
     """
@@ -113,37 +113,40 @@ def top_confusions(cm, k=3):
 def main():
     # load and extract data 
     X, y, pos = load_all()
-    F = extract(X)
+    feature_sets = {"bands": extract(X), "spectrum": extract_spectrum(X)}
     RESULTS = Path(__file__).resolve().parents[1] / "results"
     RESULTS.mkdir(exist_ok=True)
-    cms = []
 
     # build the models
-    for name, model in build_models().items():
-        cm, r_mean, r_std = random_split_eval(model, F, y)
-        b_mean, b_std = block_split_eval(model, F, y, pos)
-        # gap shows how much of the random score comes from recognizing people
-        gap = r_mean - b_mean
-        print(f"{name:<8}  random {r_mean:.3f} +/- {r_std:.3f}  "
-            f"block {b_mean:.3f} +/- {b_std:.3f}  gap {gap:+.3f}")
-        
-        # plot the results 
-        title = f"{name}"
-        path = RESULTS / f"cm_{name}.png"
-        plot(cm, title, path)
+    for set_name, F in feature_sets.items():
+        print("-"*100)
+        print(f"Now examining {set_name}:")
+        cms = []
+        for name, model in build_models().items():
+            cm, r_mean, r_std = random_split_eval(model, F, y)
+            b_mean, b_std = block_split_eval(model, F, y, pos)
+            # gap shows how much of the random score comes from recognizing people
+            gap = r_mean - b_mean
+            print(f"{name:<8}  random {r_mean:.3f} +/- {r_std:.3f}  "
+                f"block {b_mean:.3f} +/- {b_std:.3f}  gap {gap:+.3f}")
+            
+            # plot the results 
+            title = f"{set_name} {name}"
+            path = RESULTS / f"cm_{set_name}_{name}.png"
+            plot(cm, title, path)
 
-        cms.append(cm)
+            cms.append(cm)
 
-    all_cms = np.stack(cms)
-    cm_mean = all_cms.mean(axis=0)
-    plot(cm_mean, "cm mean", RESULTS / "cm_mean.png")
-    cm_std = all_cms.std(axis=0)
-    plot(cm_std, "cm std", RESULTS / "cm_disagreement.png", cm_std.max())
+        all_cms = np.stack(cms)
+        cm_mean = all_cms.mean(axis=0)
+        plot(cm_mean, "cm mean", RESULTS / f"{set_name}_cm_mean.png")
+        cm_std = all_cms.std(axis=0)
+        plot(cm_std, "cm std", RESULTS / f"{set_name}_cm_disagreement.png", cm_std.max())
 
-    # check top 3 confusions among all models 
-    print("Top confusions (true --> predicted):")
-    for t, p, v in top_confusions(cm_mean):
-        print(f"{t} --> {p} {v:.2f}")
+        # check top 3 confusions among all models 
+        print(f"Top confusions for {set_name} (true --> predicted):")
+        for t, p, v in top_confusions(cm_mean):
+            print(f"{t} --> {p} {v:.2f}")
 
 if __name__ == "__main__": 
     main()
