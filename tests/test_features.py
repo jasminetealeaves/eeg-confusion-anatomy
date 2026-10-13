@@ -1,6 +1,6 @@
 import numpy as np
 import pytest
-from src.data import FS, load_all
+from src.data import FS
 from src.features import extract, extract_spectrum, FEATURE_NAMES
 
 t = np.arange(4097) / FS
@@ -32,6 +32,7 @@ def test_rel_bands_sum_to_one():
 def test_shape_and_dtype():
     F = extract(np.array([sine(10), sine(20)]))
     assert F.shape == (2, len(FEATURE_NAMES)), f"F shape is {F.shape}, expected (2, {len(FEATURE_NAMES)})"
+    assert F.dtype == np.float64, f"F dtype is {F.dtype}, expected float64"
 
 def test_spectrum_peaks_at_sine_frequency():
     S = extract_spectrum(sine(10)[None])[0]

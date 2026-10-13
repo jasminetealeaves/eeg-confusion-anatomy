@@ -21,7 +21,7 @@ def load_all():
     for cls, s in enumerate(SETS):
         files = get_files_per_folder(s)
         if len(files) != 100:
-            raise ValueError(f'{set=} found {len(files)}, expected 100')
+            raise ValueError(f'{s=} found {len(files)}, expected 100')
         # looping through all txt files in a folder
         for i, file in enumerate(files):
             data = np.loadtxt(file, dtype=np.float64)

@@ -9,7 +9,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.svm import SVC
-from sklearn.model_selection import RepeatedStratifiedKFold
+from sklearn.model_selection import RepeatedStratifiedKFold, StratifiedKFold, GridSearchCV
 from sklearn.metrics import confusion_matrix, f1_score
 from sklearn.base import clone
 
@@ -20,16 +20,29 @@ def build_models():
     """
     returns dict[str, estimator]: logistic regression, random forest, svm_rbf
     """
+    inner_cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
     return {
-        "logreg": Pipeline([
-            ("scaler", StandardScaler()),
-            ("clf", LogisticRegression(max_iter=5000))
-        ]),
-        "forest": RandomForestClassifier(n_estimators=300, random_state=42),
-        "svm_rbf": Pipeline([
-            ("scaler", StandardScaler()),
-            ("clf", SVC(kernel="rbf", C=10, gamma="scale"))
-        ])
+        "logreg": GridSearchCV(
+            Pipeline([
+                ("scaler", StandardScaler()),
+                ("clf", LogisticRegression(max_iter=5000))
+            ]),
+            param_grid={"clf__C": [0.01, 0.1, 1, 10, 100]},
+            cv=inner_cv, scoring="f1_macro", n_jobs=-1
+        ),
+        "forest": GridSearchCV(
+            RandomForestClassifier(n_estimators=300, random_state=42),
+            param_grid={"min_samples_leaf": [1, 3, 10], "max_features": ["sqrt", 0.3]},
+            cv=inner_cv, scoring="f1_macro", n_jobs=-1
+        ),
+        "svm_rbf": GridSearchCV(
+            Pipeline([
+                ("scaler", StandardScaler()),
+                ("clf", SVC(kernel="rbf"))
+            ]),
+            param_grid={"clf__C": [0.1, 1, 10, 100, 1000], "clf__gamma": ["scale", 0.001, 0.01, 0.1]},
+            cv=inner_cv, scoring="f1_macro", n_jobs=-1
+        )
     }
 
 def random_split_eval(model, F, y, seed=42):
@@ -58,24 +71,6 @@ def random_split_eval(model, F, y, seed=42):
 
     return cm_total, np.mean(f1s), np.std(f1s)
 
-def block_split_eval(model, F, y, pos):
-    # estimates how much of the random split comes from recognizing the people rather than the brain states
-    # 100 recordings across 5 people, each person roughly has 20 recordings 
-    f1s = []
-    for b in range(5):
-        test_mask = pos // 20 == b 
-        train = ~test_mask
-        X_train = F[train]
-        y_train = y[train]
-        X_test = F[test_mask]
-        y_test = y[test_mask]
-
-        m = clone(model)
-        m.fit(X_train, y_train)
-        y_pred = m.predict(X_test)
-        f1s.append(f1_score(y_test, y_pred, average='macro'))
-
-    return np.mean(f1s), np.std(f1s)
 
 def plot(cm, title, path, vmax=1.0):
     fig, ax = plt.subplots(figsize=(6,5))
@@ -124,12 +119,9 @@ def main():
         cms = []
         for name, model in build_models().items():
             cm, r_mean, r_std = random_split_eval(model, F, y)
-            b_mean, b_std = block_split_eval(model, F, y, pos)
-            # gap shows how much of the random score comes from recognizing people
-            gap = r_mean - b_mean
-            print(f"{name:<8}  random {r_mean:.3f} +/- {r_std:.3f}  "
-                f"block {b_mean:.3f} +/- {b_std:.3f}  gap {gap:+.3f}")
-            
+            # check performance without grid search
+            cm_u, u_mean, _ = random_split_eval(model.estimator, F, y)
+            print(f"{name:<8}  tuned F1 {r_mean:.3f} +/- {r_std:.3f}  untuned F1 {u_mean:.3f}")
             # plot the results 
             title = f"{set_name} {name}"
             path = RESULTS / f"cm_{set_name}_{name}.png"

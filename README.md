@@ -1,19 +1,20 @@
 # EEG Confusion Anatomy
 
-This project classifies 5 kinds of neural recordings from the Bonn EEG Epileptic dataset (Andrzejak et al., 2001) to see which classes the modesl confuse.
+This project classifies 5 kinds of neural recordings from the Bonn EEG Epileptic dataset (Andrzejak et al., 2001) to see which classes the models confuse.
 
 | Class | Who | Electrode | Condition |
 | --- | --- | --- | --- |
 | **EyeOpen** | 5 healthy volunteers | on the scalp | resting, eyes open |
 | **EyeClosed** | same 5 healthy | on the scalp | resting, eyes closed |
-| **Contralateral** | 5 epilepsy patients | inside the skull | between seizures, from the *non*-diseased side of the brain |
-| **Epileptogenic** | same 5 epilepsy patients | inside the skull | between seizures, from the diseased side |
+| **Contralateral** | 5 epilepsy patients | inside the skull | between seizures, from the *non*-epileptogenic side of the brain |
+| **Epileptogenic** | same 5 epilepsy patients | inside the skull | between seizures, from the epileptogenic side |
 | **Seizure** | same 5 epilepsy patients | inside the skull | during an actual seizure |
 
-Detecting an active seizure is easy as the brain oscillations amplitude is roughly 5x than normal ones. The question this project intends to look at is Contralateral vs Epileptogenic, whether a model can separate EEG recorded from the same patients, and from the same electrodes but sitting in epileptogenic vs non-epileptogenic brain issue.
+Detecting an active seizure is easy as the brain oscillations amplitude is roughly 5x than normal ones. The question this project intends to look at is Contralateral vs Epileptogenic, whether a model can separate EEG recorded from the same patients, and from the same type of depth electrode, placed in matching spots in each hippocampus but sitting in epileptogenic vs non-epileptogenic brain tissue.
 
 ## Findings
 
+- Epileptogenic recordings are correctly identified 60% of the time with bands and 71% with the spectrum; most misses are called Contralateral (33% / 25%).
 - Epileptogenic <-> Contralateral is the most confusing pair with every model and for both feature sets
 
 **Top confusions, averaged across the 3 models (random split)**
@@ -25,26 +26,25 @@ Detecting an active seizure is easy as the brain oscillations amplitude is rough
 | EyeClosed → EyeOpen | 0.08 | 0.06 |
 
 - On average, the models predicted 33% of the Epileptogenic recordings as Contralateral with band features, and 25% with the full power spectrum
-![Average model confusion matrix|200](results/cm_bands_mean.png)
-![Average model confusion matrix|200](results/cm_spectrum_mean.png)
-
-- The gap in average macro F1 score between random split and block split is less than 0.034, which shows no sign that the models are recognizing patients
+- Why Epileptogenic → Contralateral (0.33) is more common than the reverse (0.18). The paper says epileptic activity between seizures comes and goes, so only some Epileptogenic segments contain high frequency oscillations. It found nonlinear structure in 37/100 Epileptogenic vs 14/100 Contralateral segments. These findings indicate that some normal-looking epileptogenic recordings might get called Contralateral and thus making it easy for classifiers to call epileptogenic recordings as contralateral.
+![Average model confusion matrix](results/cm_bands_mean.png)
+![Average model confusion matrix](results/cm_spectrum_mean.png)
 
 **Macro F1 (mean ± std across folds), averaged over all 5 classes**
 
-| Features | Model | Random split | Block split | Gap |
-| --- | --- | --- | --- | --- |
-| Bands | logreg | 0.798 ± 0.034 | 0.782 ± 0.044 | +0.016 |
-| Bands | forest | 0.859 ± 0.022 | 0.845 ± 0.012 | +0.014 |
-| Bands | svm_rbf | 0.839 ± 0.023 | 0.805 ± 0.023 | +0.034 |
-| Spectrum | logreg | 0.877 ± 0.036 | 0.865 ± 0.040 | +0.011 |
-| Spectrum | forest | 0.865 ± 0.033 | 0.864 ± 0.030 | +0.001 |
-| Spectrum | svm_rbf | 0.890 ± 0.033 | 0.893 ± 0.021 | −0.003 |
+| Features | Model | macro F1 score |
+| --- | --- | --- |
+| Bands | logreg | 0.798 ± 0.034 |
+| Bands | forest | 0.859 ± 0.022 |
+| Bands | svm_rbf | 0.839 ± 0.023 |
+| Spectrum | logreg | 0.877 ± 0.036 |
+| Spectrum | forest | 0.865 ± 0.033 |
+| Spectrum | svm_rbf | 0.890 ± 0.033 |
 
 ## What this can and can't tell us
 
 - The data was filtered at 0.53-40 Hz and sampled at 173.61 Hz. High frequency oscillations (80-500 Hz), a key marker of epileptogenic tissue, cannot appear in the recordings.
-- There are 5 patients but no patient IDs so the block split is an approximation. 
+- Patient recognition can't be ruled out. There are no patient IDs, and the random-split scores may be optimistic.
 - Segments were picked to be stationary and artifact-free, which may leave out spike-heavy epileptogenic activity.
 
 ## Method
@@ -72,9 +72,8 @@ The scalers are part of each model's pipeline, so they are fit on the training f
 **Evaluation.**
 
 - **Random split:** stratified 5-fold cross-validation, repeated 5 times, for 25 train/test splits in total. It reports macro F1 (mean ± std over folds) and a confusion matrix summed over all folds, with each row divided by its total.
-- **Block split:** 5 folds, each holding out positions 0–19, 20–39, … of every class. Each class has 5 patients and files follow recording order, so a block of 20 likely comes mostly from one patient. Patient IDs aren't available, so this is unverified. It reports macro F1.
-- **Gap:** random-split F1 minus block-split F1. A large gap would mean the models score well partly by recognising patients.
-- **Model agreement:** the three models' confusion matrices are averaged (`cm_<set>_mean.png`), and their standard deviation is plotted (`cm_<set>_disagreement.png`). If all three make the same mistakes, the confusion comes from the data rather than from one model.
+- **Model agreement:** the three models' confusion matrices are averaged (`cm_<set>_mean.png`), and their standard deviation is plotted (`cm_<set>_disagreement.png`).
+- **Hyperparameter tuning:** hyperparameter tuning is skipped because this project aims to study the confusion pattern, not to chase accuracy
 
 ## Reproduce
 
