@@ -29,8 +29,8 @@ CRLF line endings.
 
 | Folder | Paper set | Index | Name | Subjects | Electrodes | State |
 | --- | --- | --- | --- | --- | --- | --- |
-| `Z` | A | 0 | EyesOpen | 5 healthy | scalp | awake, eyes open |
-| `O` | B | 1 | EyesClosed | same 5 healthy | scalp | awake, eyes closed |
+| `Z` | A | 0 | EyeOpen | 5 healthy | scalp | awake, eyes open |
+| `O` | B | 1 | EyeClosed | same 5 healthy | scalp | awake, eyes closed |
 | `N` | C | 2 | Contralateral | 5 epilepsy patients | intracranial | interictal, opposite hemisphere |
 | `F` | D | 3 | Epileptogenic | same 5 patients | intracranial | interictal, epileptogenic zone |
 | `S` | E | 4 | Seizure | same 5 patients | intracranial | ictal |

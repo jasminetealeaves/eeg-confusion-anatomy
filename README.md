@@ -10,46 +10,51 @@ This project classifies 5 kinds of neural recordings from the Bonn EEG Epileptic
 | **Epileptogenic** | same 5 epilepsy patients | inside the skull | between seizures, from the epileptogenic side |
 | **Seizure** | same 5 epilepsy patients | inside the skull | during an actual seizure |
 
-Detecting an active seizure is easy as the brain oscillations amplitude is roughly 5x than normal ones. The question this project intends to look at is Contralateral vs Epileptogenic, whether a model can separate EEG recorded from the same patients, and from the same type of depth electrode, placed in matching spots in each hippocampus but sitting in epileptogenic vs non-epileptogenic brain tissue.
+Detecting a seizure is easy: its amplitude is roughly 5 times that of the other classes. This project focuses on Contralateral vs Epileptogenic: can a model tell apart EEG recorded from the same patients, with the same type of depth electrode placed at matching spots in each hippocampus, when one side is epileptogenic tissue and the other is not?
 
 ## Findings
 
-- Epileptogenic recordings are correctly identified 60% of the time with bands and 71% with the spectrum; most misses are called Contralateral (33% / 25%).
-- Epileptogenic <-> Contralateral is the most confusing pair with every model and for both feature sets
+- **Short answer: partly.** Epileptogenic recordings are correctly identified 62% of the time with band features and 75% with the full spectrum. Most misses are called Contralateral (32% / 21%).
+- Epileptogenic ↔ Contralateral is the most confused pair for every model and both feature sets.
 
-**Top confusions, averaged across the 3 models (random split)**
+**Top confusions, averaged across the 3 models**
 
 | True → Predicted | Bands | Spectrum |
 | --- | --- | --- |
-| Epileptogenic → Contralateral | 0.33 | 0.25 |
-| Contralateral → Epileptogenic | 0.18 | 0.15 |
-| EyeClosed → EyeOpen | 0.08 | 0.06 |
+| Epileptogenic → Contralateral | 0.32 | 0.21 |
+| Contralateral → Epileptogenic | 0.18 | 0.16 |
+| EyeClosed → EyeOpen | 0.07 | 0.05 |
 
-- On average, the models predicted 33% of the Epileptogenic recordings as Contralateral with band features, and 25% with the full power spectrum
-- Why Epileptogenic → Contralateral (0.33) is more common than the reverse (0.18). The paper says epileptic activity between seizures comes and goes, so only some Epileptogenic segments contain high frequency oscillations. It found nonlinear structure in 37/100 Epileptogenic vs 14/100 Contralateral segments. These findings indicate that some normal-looking epileptogenic recordings might get called Contralateral and thus making it easy for classifiers to call epileptogenic recordings as contralateral.
-![Average model confusion matrix](results/cm_bands_mean.png)
-![Average model confusion matrix](results/cm_spectrum_mean.png)
+<p>
+  <img src="results/cm_bands_mean.png" alt="Average confusion matrix, band features" width="49%">
+  <img src="results/cm_spectrum_mean.png" alt="Average confusion matrix, full spectrum" width="49%">
+</p>
+
+- **The full spectrum helps logistic regression and the SVM, but not the forest.** Epileptogenic → Contralateral falls from 0.34 to 0.16 for logistic regression and from 0.36 to 0.17 for the SVM, but goes from 0.27 to 0.29 for the forest (per-model matrices are in `results/`).
+- **Why Epileptogenic → Contralateral is more common than the reverse.** A likely explanation: the paper says interictal epileptiform activity (spikes and sharp waves) comes and goes, so only some Epileptogenic segments contain it. It found nonlinear structure in 37/100 Epileptogenic vs 14/100 Contralateral segments. Normal-looking Epileptogenic segments fall inside the Contralateral range, where Contralateral recordings outnumber them, so the models call them Contralateral. Contralateral recordings rarely look like the abnormal Epileptogenic ones, so the reverse mistake is rarer. The gap is clearest with band features (0.32 vs 0.18). The full spectrum mainly cuts the Epileptogenic → Contralateral errors (0.21 vs 0.16), and for logistic regression the gap disappears (0.16 vs 0.17).
 
 **Macro F1 (mean ± std across folds), averaged over all 5 classes**
 
-| Features | Model | macro F1 score |
-| --- | --- | --- |
-| Bands | logreg | 0.798 ± 0.034 |
-| Bands | forest | 0.859 ± 0.022 |
-| Bands | svm_rbf | 0.839 ± 0.023 |
-| Spectrum | logreg | 0.877 ± 0.036 |
-| Spectrum | forest | 0.865 ± 0.033 |
-| Spectrum | svm_rbf | 0.890 ± 0.033 |
+| Features | Model | Tuned | Untuned (scikit-learn defaults) |
+| --- | --- | --- | --- |
+| Bands | logreg | 0.815 ± 0.032 | 0.798 |
+| Bands | forest | 0.858 ± 0.023 | 0.859 |
+| Bands | svm_rbf | 0.847 ± 0.032 | 0.808 |
+| Spectrum | logreg | 0.882 ± 0.031 | 0.877 |
+| Spectrum | forest | 0.865 ± 0.031 | 0.865 |
+| Spectrum | svm_rbf | 0.912 ± 0.028 | 0.824 |
+
+Tuning matters mostly for the SVM. It changes how often Epileptogenic is called Contralateral (average of the 3 models: 0.36 → 0.32 with bands, 0.31 → 0.21 with the spectrum) but not which classes are confused: the same three pairs top the list.
 
 ## What this can and can't tell us
 
 - The data was filtered at 0.53-40 Hz and sampled at 173.61 Hz. High frequency oscillations (80-500 Hz), a key marker of epileptogenic tissue, cannot appear in the recordings.
 - Patient recognition can't be ruled out. There are no patient IDs, and the random-split scores may be optimistic.
-- Segments were picked to be stationary and artifact-free, which may leave out spike-heavy epileptogenic activity.
+- Healthy volunteers were recorded from the scalp and patients from inside the skull, so telling healthy and patient classes apart may partly reflect electrode type rather than brain state. This also inflates the 5-class macro F1. The Contralateral vs Epileptogenic comparison isn't affected, as both use the same type of depth electrode.
 
 ## Method
 
-**Data.** 
+**Data.**
 500 single-channel recordings, 100 per class. Each is 23.6 s long: 4097 samples at 173.61 Hz, band-pass filtered at 0.53–40 Hz. `src/data.py` loads them into `X` (500 × 4097), the labels `y` (0–4), and `pos`, each recording's position (0–99) within its class. See [data/README.md](data/README.md) for download steps and file layout.
 
 **Features** (`src/features.py`). Both feature sets come from Welch's power spectrum (512-sample windows, bins 0.339 Hz apart):
@@ -59,21 +64,23 @@ Detecting an active seizure is easy as the brain oscillations amplitude is rough
 | Bands | 8 | relative power in delta (0.5–4 Hz), theta (4–8), alpha (8–13), beta (13–30) and gamma (30–40); log10 total power (0.5–40 Hz); standard deviation; line length |
 | Spectrum | 116 | log10 power at every bin from 0.5 to 40 Hz |
 
-The band powers are a summary of the full spectrum, so comparing the two sets shows how much of the confusion comes from summarising. Frequencies above 40 Hz are ignored, because the recordings were filtered there. Recordings are not rescaled individually, because absolute amplitude carries real signal.
+The band powers are a summary of the full spectrum, so comparing the two sets shows how much of the confusion comes from summarizing.
 
 **Models** (`src/run.py`), all from scikit-learn:
 
-- logistic regression (`StandardScaler` + `LogisticRegression`)
-- random forest (300 trees)
-- SVM with an RBF kernel (`StandardScaler` + `SVC`, `C=10`)
+| Model | Pipeline | Settings searched |
+| --- | --- | --- |
+| logistic regression | `StandardScaler` + `LogisticRegression` | `C`: 0.01, 0.1, 1, 10, 100 |
+| random forest | `RandomForestClassifier` (300 trees) | `min_samples_leaf`: 1, 3, 10; `max_features`: sqrt, 0.3 |
+| SVM with an RBF kernel | `StandardScaler` + `SVC` | `C`: 0.1, 1, 10, 100, 1000; `gamma`: scale, 0.001, 0.01, 0.1 |
 
 The scalers are part of each model's pipeline, so they are fit on the training folds only.
 
 **Evaluation.**
 
 - **Random split:** stratified 5-fold cross-validation, repeated 5 times, for 25 train/test splits in total. It reports macro F1 (mean ± std over folds) and a confusion matrix summed over all folds, with each row divided by its total.
+- **Hyperparameter tuning:** within each of the 25 training sets, a 5-fold grid search picks the settings with the best macro F1, and the model is refit on the whole training set before scoring the test fold (nested cross-validation). The test fold never influences the choice. For comparison, the same models with scikit-learn's default settings are scored on the same 25 splits.
 - **Model agreement:** the three models' confusion matrices are averaged (`cm_<set>_mean.png`), and their standard deviation is plotted (`cm_<set>_disagreement.png`).
-- **Hyperparameter tuning:** hyperparameter tuning is skipped because this project aims to study the confusion pattern, not to chase accuracy
 
 ## Reproduce
 
@@ -99,13 +106,13 @@ Run all commands from the repository root.
    uv run python -m src.run
    ```
 
-   It prints the F1 table and the top confusions for each feature set, and saves these plots to `results/`:
+   It takes about 3 minutes. For each feature set it prints tuned and untuned macro F1 per model, the Epileptogenic → Contralateral rate with and without tuning, and the top confusions. It saves these plots to `results/`:
 
    - `cm_<set>_<model>.png`: confusion matrix for one model
    - `cm_<set>_mean.png`: average over the 3 models
    - `cm_<set>_disagreement.png`: standard deviation across the 3 models
 
-   `<set>` is `bands` or `spectrum`, and `<model>` is `logreg`, `forest` or `svm_rbf`. Random seeds are fixed, so reruns give the same numbers.
+   `<set>` is `bands` or `spectrum`, and `<model>` is `logreg`, `forest` or `svm_rbf`. Random seeds and package versions are fixed, so reruns give the same numbers.
 
 ## Reference
 

@@ -116,7 +116,7 @@ def main():
     for set_name, F in feature_sets.items():
         print("-"*100)
         print(f"Now examining {set_name}:")
-        cms = []
+        cms, cms_untuned = [], []
         for name, model in build_models().items():
             cm, r_mean, r_std = random_split_eval(model, F, y)
             # check performance without grid search
@@ -128,9 +128,13 @@ def main():
             plot(cm, title, path)
 
             cms.append(cm)
+            cms_untuned.append(cm_u)
 
         all_cms = np.stack(cms)
         cm_mean = all_cms.mean(axis=0)
+        cm_untuned = np.mean(cms_untuned, axis=0)
+        print(f"Epileptogenic --> Contralateral, mean of 3 models: untuned {cm_untuned[3, 2]:.2f}  tuned {cm_mean[3, 2]:.2f}")
+        
         plot(cm_mean, f"Confusion Matrix Mean ({set_name})", RESULTS / f"cm_{set_name}_mean.png")
         cm_std = all_cms.std(axis=0)
         plot(cm_std, f"Confusion Matrix Standard Deviation ({set_name})", RESULTS / f"cm_{set_name}_disagreement.png", cm_std.max())
