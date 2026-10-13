@@ -139,9 +139,9 @@ def main():
 
         all_cms = np.stack(cms)
         cm_mean = all_cms.mean(axis=0)
-        plot(cm_mean, "cm mean", RESULTS / f"{set_name}_cm_mean.png")
+        plot(cm_mean, f"Confusion Matrix Mean ({set_name})", RESULTS / f"cm_{set_name}_mean.png")
         cm_std = all_cms.std(axis=0)
-        plot(cm_std, "cm std", RESULTS / f"{set_name}_cm_disagreement.png", cm_std.max())
+        plot(cm_std, f"Confusion Matrix Standard Deviation ({set_name})", RESULTS / f"cm_{set_name}_disagreement.png", cm_std.max())
 
         # check top 3 confusions among all models 
         print(f"Top confusions for {set_name} (true --> predicted):")
